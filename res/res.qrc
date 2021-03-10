@@ -1,0 +1,8 @@
+<RCC>
+  <qresource prefix="icon">
+    <file>全选.jpg</file>
+    <file>反选.jpg</file>
+    <file>取消.jpg</file>
+    <file>icon.png</file>
+  </qresource>
+</RCC>
