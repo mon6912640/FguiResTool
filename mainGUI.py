@@ -98,7 +98,10 @@ class Ui_MainWindow(object):
         self.btnMerge.setText(_translate("MainWindow", "合并选中资源"))
         self.btnClose.setText(_translate("MainWindow", "关闭"))
         self.groupBox.setTitle(_translate("MainWindow", "图片预览"))
+        self.btnSelectAll.setToolTip(_translate("MainWindow", "全选"))
         self.btnSelectAll.setText(_translate("MainWindow", "..."))
+        self.btnReverse.setToolTip(_translate("MainWindow", "反向选择"))
         self.btnReverse.setText(_translate("MainWindow", "..."))
+        self.toolButton_3.setToolTip(_translate("MainWindow", "取消全选"))
         self.toolButton_3.setText(_translate("MainWindow", "..."))
 import res_rc

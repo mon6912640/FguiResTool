@@ -131,6 +131,9 @@
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="QToolButton" name="btnSelectAll">
+       <property name="toolTip">
+        <string>全选</string>
+       </property>
        <property name="text">
         <string>...</string>
        </property>
@@ -148,6 +151,9 @@
      </item>
      <item>
       <widget class="QToolButton" name="btnReverse">
+       <property name="toolTip">
+        <string>反向选择</string>
+       </property>
        <property name="text">
         <string>...</string>
        </property>
@@ -165,6 +171,9 @@
      </item>
      <item>
       <widget class="QToolButton" name="toolButton_3">
+       <property name="toolTip">
+        <string>取消全选</string>
+       </property>
        <property name="text">
         <string>...</string>
        </property>
