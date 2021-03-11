@@ -99,6 +99,9 @@
       <height>171</height>
      </rect>
     </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
+    </property>
     <property name="title">
      <string>图片预览</string>
     </property>
@@ -110,6 +113,9 @@
        <width>251</width>
        <height>141</height>
       </rect>
+     </property>
+     <property name="autoFillBackground">
+      <bool>false</bool>
      </property>
      <property name="text">
       <string/>

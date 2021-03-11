@@ -58,6 +58,9 @@ class VoHash:
         else:
             return '无'
 
+class VoRef:
+    # 类型
+    type = 0
 
 def analyse_files(p_root_url):
     vo_map = {}
@@ -162,27 +165,29 @@ def analyse_xml(p_root_url):
                 src_pkg_id = node.get('pkg')
                 if src_com_id:
                     if src_pkg_id:  # 有pkg属性则为外包资源
-                        # print('you', node.tag, node.attrib)
                         uid = src_pkg_id + src_com_id
                         pass
                     else:  # 无pkg属性则为本包资源
-                        # print('fuck', node.tag, node.attrib)
                         uid = pkg_id + src_com_id
                         pass
                     if uid in com_map:
                         com_map[uid].ref_pkgs.add(pkg_name)
                         com_map[uid].ref_count += 1
                 pass
-            # for node in root.iterfind('list[@defaultItem]'):
-            #     print(node.tag, node.attrib)
-            # for node in root.iterfind('.//*[@url]'):
-            #     print(node.tag, node.attrib)
-            # for node in root.iterfind('.//*[@icon]'):
-            #     print(node.tag, node.attrib)
-            # for node in root.iterfind('.//*[@values]'):
-            #     print(node.tag, node.attrib)
+            for node in root.iterfind('list[@defaultItem]'):
+                uid = node.get('defaultItem')
+                # print(node.tag, node.attrib)
+            for node in root.iterfind('.//*[@url]'):
+                uid = node.get('url')
+                # print(node.tag, node.attrib)
+            for node in root.iterfind('.//*[@icon]'):
+                uid = node.get('icon')
+                # print(node.tag, node.attrib)
+            for node in root.iterfind('.//*[@values]'):
+                uid = node.get('values')
+                # print(node.tag, node.attrib)
             for node in root.iterfind('.//property[@value]'):
-                # print(type(node))
+                uid = node.get('value')
                 # print(node.tag, node.attrib)
                 pass
             pass
