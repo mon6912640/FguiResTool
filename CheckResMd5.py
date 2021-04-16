@@ -3,6 +3,7 @@ import xml.etree.ElementTree as et
 from pathlib import Path
 from typing import List
 import re
+from enum import Enum
 
 
 def hashs(p_fname, p_type="md5", block_size=64 * 1024):
@@ -25,10 +26,25 @@ def hashs(p_fname, p_type="md5", block_size=64 * 1024):
         return hc.hexdigest()
 
 
+class RefType(Enum):
+    IMAGE = 0
+    URL = 1
+    FNT = 2
+
+
+class VoRef:
+    # 类型
+    type = 0
+    node = None
+    file: Path = None
+    uid = ''
+    pkg = ''
+
+
 class ComVo:
-    uid = 0
-    pkg_id = 0
-    com_id = 0
+    uid = ''
+    pkg_id = ''
+    com_id = ''
     name = ''
     pkg = ''
     md5 = ''
@@ -37,19 +53,18 @@ class ComVo:
     url = ''
     ref_pkgs: set = None
     ref_count = 0
+    refs: List[VoRef] = None
 
     def __init__(self):
         self.ref_pkgs = set()
+        self.refs = []
 
 
 class VoHash:
     key = ''
-    is_repeat = False
-    url_list: List[str] = None
     com_list: List[ComVo] = None
 
     def __init__(self):
-        self.url_list = []
         self.com_list = []
 
     def get_name(self):
@@ -58,36 +73,14 @@ class VoHash:
         else:
             return '无'
 
-class VoRef:
-    # 类型
-    type = 0
-
-def analyse_files(p_root_url):
-    vo_map = {}
-    path_res = Path(p_root_url) / 'assets'
-    list_file = sorted(path_res.rglob('*.*'))
-    repeat_list = []
-    for v in list_file:
-        if v.suffix == '.png' or v.suffix == '.jpg':
-            furl = v.absolute()
-            md5_str = hashs(str(furl), 'md5')
-            if md5_str not in vo_map:
-                vo_map[md5_str] = vo = VoHash()
-                vo.key = md5_str
-            else:
-                vo = vo_map[md5_str]
-            vo.url_list.append(furl)
-            if not vo.is_repeat and len(vo.url_list) > 1:
-                vo.is_repeat = True
-                repeat_list.append(vo)
-    for v in repeat_list:
-        print('======', len(v.url_list), v.key)
-        for fp in v.url_list:
-            print(fp)
-
 
 com_map = {}
 md5_map = {}
+
+
+def add_ref(uid, file, ):
+    global com_map
+    pass
 
 
 def analyse_xml(p_root_url):
@@ -160,37 +153,67 @@ def analyse_xml(p_root_url):
         if v.suffix == '.xml':
             xml_vo = et.parse(str(v))
             root = xml_vo.getroot().find('displayList')
+
+            # 直接搜索ui://xxxxxx
+            xml_str = v.read_text(encoding='utf-8')
+            find_list = re.findall('ui://(\w+)', string=xml_str)
+            # print(v.name, find_list)
+            for uid in find_list:
+                if uid in com_map:
+                    ref_vo = VoRef()
+                    ref_vo.uid = uid
+                    ref_vo.type = RefType.URL
+                    ref_vo.file = v
+                    ref_vo.pkg = pkg_name
+                    com_map[uid].refs.append(ref_vo)
+                    # com_map[uid].ref_pkgs.add(pkg_name)
+                    # com_map[uid].ref_count += 1
+
+            # 查找image标签
             for node in root.iterfind('image'):
+                # 图片引用
                 src_com_id = node.get('src')
                 src_pkg_id = node.get('pkg')
                 if src_com_id:
                     if src_pkg_id:  # 有pkg属性则为外包资源
                         uid = src_pkg_id + src_com_id
-                        pass
                     else:  # 无pkg属性则为本包资源
                         uid = pkg_id + src_com_id
-                        pass
                     if uid in com_map:
-                        com_map[uid].ref_pkgs.add(pkg_name)
-                        com_map[uid].ref_count += 1
-                pass
-            for node in root.iterfind('list[@defaultItem]'):
-                uid = node.get('defaultItem')
-                # print(node.tag, node.attrib)
-            for node in root.iterfind('.//*[@url]'):
-                uid = node.get('url')
-                # print(node.tag, node.attrib)
-            for node in root.iterfind('.//*[@icon]'):
-                uid = node.get('icon')
-                # print(node.tag, node.attrib)
-            for node in root.iterfind('.//*[@values]'):
-                uid = node.get('values')
-                # print(node.tag, node.attrib)
-            for node in root.iterfind('.//property[@value]'):
-                uid = node.get('value')
+                        ref_vo = VoRef()
+                        ref_vo.uid = uid
+                        ref_vo.type = RefType.IMAGE
+                        ref_vo.file = v
+                        ref_vo.pkg = pkg_name
+                        ref_vo.node = node
+                        com_map[uid].refs.append(ref_vo)
+                        # com_map[uid].ref_pkgs.add(pkg_name)
+                        # com_map[uid].ref_count += 1
                 # print(node.tag, node.attrib)
                 pass
-            pass
+            # for node in root.iterfind('list[@defaultItem]'):
+            #     # 列表的项目资源
+            #     uid = node.get('defaultItem')
+            #     # print(node.tag, node.attrib)
+            # for node in root.iterfind('.//*[@url]'):
+            #     # Loader/列表的单独的项目资源引用
+            #     uid = node.get('url')
+            #     # print(node.tag, node.attrib)
+            # for node in root.iterfind('.//*[@icon]'):
+            #     # 组件图标属性
+            #     uid = node.get('icon')
+            #     # print(node.tag, node.attrib)
+            # for node in root.iterfind('.//property[@value]'):
+            #     # 自定义属性
+            #     uid = node.get('value')
+            #     # print(node.tag, node.attrib)
+            # for node in root.iterfind('.//*[@values]'):
+            #     # 图标控制器
+            #     uid = node.get('values')
+            #     # print(v.name, node.tag, node.attrib)
+            # for node in root.iterfind('.//*[@default]'):
+            #     # print(v.name, node.tag, node.attrib)
+            #     pass
         if v.suffix == '.fnt':
             # print(str(v))
             fnt_str = v.read_text()
@@ -198,8 +221,12 @@ def analyse_xml(p_root_url):
             for src_com_id in find_list:
                 uid = pkg_id + src_com_id
                 if uid in com_map:
-                    com_map[uid].ref_pkgs.add(pkg_name)
-                    com_map[uid].ref_count += 1
+                    ref_vo = VoRef()
+                    ref_vo.uid = uid
+                    ref_vo.type = RefType.FNT
+                    ref_vo.file = v
+                    ref_vo.pkg = pkg_name
+                    com_map[uid].refs.append(ref_vo)
             pass
     # for k in com_map:
     #     if len(com_map[k].ref_pkgs) > 0:
@@ -209,6 +236,5 @@ def analyse_xml(p_root_url):
 
 if __name__ == '__main__':
     root_url = 'I:/newQz/client/yxqzUI'
-    # analyse_files(root_url)
     analyse_xml(root_url)
     pass

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from PyQt5.QtCore import Qt, QSize, QModelIndex
 from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel, QCheckBox
 
 import mainGUI
 import CheckResMd5 as crm
@@ -28,10 +28,29 @@ class ComItem(QWidget):
         super(ComItem, self).__init__(*args, **kwargs)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        self.cur_data = data
         des_str = data.name + '@' + data.pkg
         if data.exclude:  # 设置为不导出的资源
-            des_str = '<font color="#ff0000">{0}</font>'.format(des_str)
-        des_str = '({0}) {1}'.format(data.ref_count, des_str)
+            des_str = '<font color="#ff0000">{0}</font> {1}'.format('(×)', des_str)
+        des_str = '({0}) {1}'.format(len(data.refs), des_str)
+        self.cb = QCheckBox('', self)
+        self.cb.resize(16, 16)
+        layout.addWidget(self.cb)
+        self.tfContent = QLabel(des_str, self)
+        layout.addWidget(self.tfContent)
+        # 增加弹性布局 pyqt布局相关：https://segmentfault.com/a/1190000017845249
+        layout.addStretch(1)
+
+    def sizeHint(self) -> QSize:
+        return QSize(200, 22)
+
+
+class RefItem(QWidget):
+    def __init__(self, data: crm.VoRef, *args, **kwargs):
+        super(RefItem, self).__init__(*args, **kwargs)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        des_str = data.file.name + '@' + data.pkg
         self.tfContent = QLabel(des_str, self)
         layout.addWidget(self.tfContent)
 
@@ -48,9 +67,46 @@ class MyMainWin(QMainWindow):
 
         self.view.btnClose.clicked.connect(self.on_close_click)
         self.view.btnSearch.clicked.connect(self.on_search_click)
-        # self.view.listAll.clicked.connect(self.on_list_all_click)
+        self.view.btnSelectAll.clicked.connect(self.on_select_all)
+        self.view.btnReverse.clicked.connect(self.on_reverse)
+        self.view.btnCancelAll.clicked.connect(self.on_cancel_all)
 
         self.img = QPixmap()
+
+    def on_select_all(self):
+        # 遍历ListView
+        model = self.view.listShow.model()  # 先获取model
+        count = model.rowCount()  # 获取model长度
+        for i in range(count):
+            mi = model.index(i, 0)  # 获取QModelIndex
+            item: ComItem = self.view.listShow.indexWidget(mi)  # 通过QModelIndex获取具体的item
+            # print(item.cb.checkState())
+            item.cb.setChecked(True)
+        pass
+
+    def on_reverse(self):
+        # 遍历ListView
+        model = self.view.listShow.model()  # 先获取model
+        count = model.rowCount()  # 获取model长度
+        for i in range(count):
+            mi = model.index(i, 0)  # 获取QModelIndex
+            item: ComItem = self.view.listShow.indexWidget(mi)  # 通过QModelIndex获取具体的item
+            if item.cb.checkState() == Qt.Checked:
+                item.cb.setChecked(False)
+            else:
+                item.cb.setChecked(True)
+        pass
+
+    def on_cancel_all(self):
+        # 遍历ListView
+        model = self.view.listShow.model()  # 先获取model
+        count = model.rowCount()  # 获取model长度
+        for i in range(count):
+            mi = model.index(i, 0)  # 获取QModelIndex
+            item: ComItem = self.view.listShow.indexWidget(mi)  # 通过QModelIndex获取具体的item
+            # print(item.cb.checkState())
+            item.cb.setChecked(False)
+        pass
 
     def show_preview(self, p_url):
         self.img.load(p_url)
@@ -70,9 +126,17 @@ class MyMainWin(QMainWindow):
         """
         if cur_index:
             vo = self.hash_list[cur_index.row()]
+            self.cur_hash_vo = vo
             if vo:
                 self.show_preview(vo.com_list[0].url)
                 self.show_com_list(cur_index.row())
+                self.show_ref_list([])
+        pass
+
+    def on_list_show_selected_change(self, cur_index: QModelIndex, last_index: QModelIndex):
+        if cur_index and self.cur_hash_vo:
+            vo = self.cur_hash_vo.com_list[cur_index.row()]
+            self.show_ref_list(vo.refs)
         pass
 
     def on_close_click(self):
@@ -80,11 +144,12 @@ class MyMainWin(QMainWindow):
         app.quit()
 
     def on_search_click(self):
-        self._model = QStandardItemModel(self)
-        self.view.listAll.setModel(self._model)
+        self._model_all = QStandardItemModel(self)
+        self.view.listAll.setModel(self._model_all)
         # 选中处理
         self.view.listAll.selectionModel().currentChanged.connect(self.on_list_all_selected_change)
 
+        # root_url = 'I:/sanguo2/client/sanguo2UI'
         root_url = 'I:/newQz/client/yxqzUI'
         crm.analyse_xml(root_url)
         self.md5_map = crm.md5_map
@@ -100,8 +165,8 @@ class MyMainWin(QMainWindow):
 
         for v in self.hash_list:
             item = QStandardItem()
-            self._model.appendRow(item)
-            index = self._model.indexFromItem(item)
+            self._model_all.appendRow(item)
+            index = self._model_all.indexFromItem(item)
             sitem = SourceItem(v)
             item.setSizeHint(sitem.sizeHint())
             self.view.listAll.setIndexWidget(index, sitem)
@@ -114,14 +179,31 @@ class MyMainWin(QMainWindow):
         if vo:
             self._com_model = QStandardItemModel(self)
             self.view.listShow.setModel(self._com_model)
+            # 选中处理
+            self.view.listShow.selectionModel().currentChanged.connect(self.on_list_show_selected_change)
+
             for v in vo.com_list:
                 item = QStandardItem()
                 self._com_model.appendRow(item)
 
-                index = self._com_model.indexFromItem(item)
+                m_index = self._com_model.indexFromItem(item)
                 com_item = ComItem(v)
                 item.setSizeHint(com_item.sizeHint())
-                self.view.listShow.setIndexWidget(index, com_item)
+                self.view.listShow.setIndexWidget(m_index, com_item)
+        pass
+
+    def show_ref_list(self, p_ref_list):
+        self._ref_model = QStandardItemModel(self)
+        self.view.listRef.setModel(self._ref_model)
+
+        for v in p_ref_list:
+            item = QStandardItem()
+            self._ref_model.appendRow(item)
+
+            m_index = self._ref_model.indexFromItem(item)
+            ref_item = RefItem(v)
+            item.setSizeHint(ref_item.sizeHint())
+            self.view.listRef.setIndexWidget(m_index, ref_item)
         pass
 
 

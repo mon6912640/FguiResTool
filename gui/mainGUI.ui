@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>553</width>
+    <width>831</width>
     <height>588</height>
    </rect>
   </property>
@@ -39,6 +39,9 @@
       <width>271</width>
       <height>391</height>
      </rect>
+    </property>
+    <property name="selectionMode">
+     <enum>QAbstractItemView::NoSelection</enum>
     </property>
    </widget>
    <widget class="QListView" name="listAll">
@@ -125,7 +128,7 @@
      </property>
     </widget>
    </widget>
-   <widget class="QWidget" name="">
+   <widget class="QWidget" name="layoutWidget">
     <property name="geometry">
      <rect>
       <x>420</x>
@@ -176,7 +179,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QToolButton" name="toolButton_3">
+      <widget class="QToolButton" name="btnCancelAll">
        <property name="toolTip">
         <string>取消全选</string>
        </property>
@@ -197,13 +200,36 @@
      </item>
     </layout>
    </widget>
+   <widget class="QGroupBox" name="groupBox_2">
+    <property name="geometry">
+     <rect>
+      <x>560</x>
+      <y>0</y>
+      <width>271</width>
+      <height>541</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>依赖引用</string>
+    </property>
+    <widget class="QListView" name="listRef">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>20</y>
+       <width>271</width>
+       <height>521</height>
+      </rect>
+     </property>
+    </widget>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>553</width>
+     <width>831</width>
      <height>23</height>
     </rect>
    </property>
