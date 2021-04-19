@@ -63,6 +63,8 @@ class ComVo:
 class VoHash:
     key = ''
     com_list: List[ComVo] = None
+    # 保留的uid
+    reserved_uid = ''
 
     def __init__(self):
         self.com_list = []

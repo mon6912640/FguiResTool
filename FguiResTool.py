@@ -1,12 +1,11 @@
 import sys
-from pathlib import Path
 
 from PyQt5.QtCore import Qt, QSize, QModelIndex
 from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel, QCheckBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel, QCheckBox, QMessageBox
 
-import mainGUI
 import CheckResMd5 as crm
+import mainGUI
 
 
 class SourceItem(QWidget):
@@ -30,6 +29,10 @@ class ComItem(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.cur_data = data
         des_str = data.name + '@' + data.pkg
+
+        hash_vo: crm.VoHash = crm.md5_map[data.md5]
+        if hash_vo.reserved_uid == data.uid:  # 保留资源着色显示
+            des_str = '<font color="#0000ff">{0}</font>'.format(des_str)
         if data.exclude:  # 设置为不导出的资源
             des_str = '<font color="#ff0000">{0}</font> {1}'.format('(×)', des_str)
         des_str = '({0}) {1}'.format(len(data.refs), des_str)
@@ -59,6 +62,9 @@ class RefItem(QWidget):
 
 
 class MyMainWin(QMainWindow):
+    cur_hash_vo: crm.VoHash = None
+    cur_com_vo: crm.ComVo = None
+
     def __init__(self):
         QMainWindow.__init__(self)
 
@@ -70,8 +76,44 @@ class MyMainWin(QMainWindow):
         self.view.btnSelectAll.clicked.connect(self.on_select_all)
         self.view.btnReverse.clicked.connect(self.on_reverse)
         self.view.btnCancelAll.clicked.connect(self.on_cancel_all)
+        self.view.btnSave.clicked.connect(self.on_save)
+        self.view.btnMerge.clicked.connect(self.on_merge)
 
         self.img = QPixmap()
+
+    def on_save(self):
+        while True:
+            if not self.cur_hash_vo:
+                break
+            if not self.cur_com_vo:
+                QMessageBox.warning(self, '注意', '没有选中要保留的资源', QMessageBox.Ok)
+                break
+            self.cur_hash_vo.reserved_uid = self.cur_com_vo.uid
+            self.show_com_list(self.cur_hash_vo)
+            break
+        pass
+
+    def on_merge(self):
+        while True:
+            if not self.cur_hash_vo:
+                break
+            if not self.cur_hash_vo.reserved_uid:
+                QMessageBox.warning(self, '注意', '没有设置保留资源', QMessageBox.Ok)
+                break
+            s_com_list = []
+            # 遍历ListView
+            model = self.view.listShow.model()  # 先获取model
+            count = model.rowCount()  # 获取model长度
+            for i in range(count):
+                mi = model.index(i, 0)  # 获取QModelIndex
+                item: ComItem = self.view.listShow.indexWidget(mi)  # 通过QModelIndex获取具体的item
+                if item.cb.checkState() == Qt.Checked:
+                    s_com_list.append(item.cur_data)
+                    pass
+            if len(s_com_list) < 1:
+                QMessageBox.warning(self, '注意', '并没有勾选资源', QMessageBox.Ok)
+            break
+        pass
 
     def on_select_all(self):
         # 遍历ListView
@@ -80,7 +122,6 @@ class MyMainWin(QMainWindow):
         for i in range(count):
             mi = model.index(i, 0)  # 获取QModelIndex
             item: ComItem = self.view.listShow.indexWidget(mi)  # 通过QModelIndex获取具体的item
-            # print(item.cb.checkState())
             item.cb.setChecked(True)
         pass
 
@@ -129,13 +170,14 @@ class MyMainWin(QMainWindow):
             self.cur_hash_vo = vo
             if vo:
                 self.show_preview(vo.com_list[0].url)
-                self.show_com_list(cur_index.row())
+                self.show_com_list(vo)
                 self.show_ref_list([])
         pass
 
     def on_list_show_selected_change(self, cur_index: QModelIndex, last_index: QModelIndex):
         if cur_index and self.cur_hash_vo:
             vo = self.cur_hash_vo.com_list[cur_index.row()]
+            self.cur_com_vo = vo
             self.show_ref_list(vo.refs)
         pass
 
@@ -174,8 +216,8 @@ class MyMainWin(QMainWindow):
         self.statusBar().showMessage('共有{0}个重复资源'.format(len(self.hash_list)))
         pass
 
-    def show_com_list(self, index):
-        vo = self.hash_list[index]
+    def show_com_list(self, p_hash):
+        vo = p_hash
         if vo:
             self._com_model = QStandardItemModel(self)
             self.view.listShow.setModel(self._com_model)
