@@ -1,5 +1,7 @@
+import os
 import sys
 
+from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QSize, QModelIndex
 from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel, QCheckBox, QMessageBox
@@ -51,14 +53,30 @@ class ComItem(QWidget):
 class RefItem(QWidget):
     def __init__(self, data: crm.VoRef, *args, **kwargs):
         super(RefItem, self).__init__(*args, **kwargs)
+        self.cur_data = data
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         des_str = data.file.name + '@' + data.pkg
         self.tfContent = QLabel(des_str, self)
         layout.addWidget(self.tfContent)
 
+        # 右键菜单 https://www.pythonf.cn/read/152969
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.custom_right_menu)
+
     def sizeHint(self) -> QSize:
         return QSize(200, 22)
+
+    def custom_right_menu(self, pos):
+        menu = QtWidgets.QMenu()
+        op1 = menu.addAction('打开文件')
+        op2 = menu.addAction('定位文件')
+        action = menu.exec_(self.mapToGlobal(pos))
+
+        if action == op1:  # 直接使用默认程序打开文件
+            os.startfile(self.cur_data.file)
+        elif action == op2:  # 打开资源管理器并定位到相应文件
+            os.system('explorer.exe /select,' + str(self.cur_data.file))
 
 
 class MyMainWin(QMainWindow):
