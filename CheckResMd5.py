@@ -48,15 +48,14 @@ class ComVo:
     name = ''
     pkg = ''
     md5 = ''
-    # 不导出
+    # 排除
     exclude = False
+    # 导出
+    exported = False
     url = ''
-    ref_pkgs: set = None
-    ref_count = 0
     refs: List[VoRef] = None
 
     def __init__(self):
-        self.ref_pkgs = set()
         self.refs = []
 
 
@@ -80,9 +79,8 @@ com_map = {}
 md5_map = {}
 
 
-def add_ref(uid, file, ):
-    global com_map
-    pass
+def get_com_by_uid(p_uid) -> ComVo:
+    return com_map[p_uid]
 
 
 def analyse_xml(p_root_url):
@@ -115,6 +113,8 @@ def analyse_xml(p_root_url):
                 com_vo.pkg_id = pkg_id
                 com_vo.com_id = com_id
                 com_vo.name = com.get('name')
+                if com.get('exported') == 'true':
+                    com_vo.exported = True
                 com_vo.pkg = pkg
                 com_vo.md5 = md5_str
                 com_vo.url = url

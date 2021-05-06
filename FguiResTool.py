@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import List
 
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QSize, QModelIndex
@@ -35,8 +36,10 @@ class ComItem(QWidget):
         hash_vo: crm.VoHash = crm.md5_map[data.md5]
         if hash_vo.reserved_uid == data.uid:  # 保留资源着色显示
             des_str = '<font color="#0000ff">{0}</font>'.format(des_str)
-        if data.exclude:  # 设置为不导出的资源
+        if data.exclude:  # 设置为图集排除的资源
             des_str = '<font color="#ff0000">{0}</font> {1}'.format('(×)', des_str)
+        if not data.exported:  # 没有设置为导出的资源
+            des_str = '<font color="#ff0000">{0}</font> {1}'.format('(local)', des_str)
         des_str = '({0}) {1}'.format(len(data.refs), des_str)
         self.cb = QCheckBox('', self)
         self.cb.resize(16, 16)
@@ -46,8 +49,23 @@ class ComItem(QWidget):
         # 增加弹性布局 pyqt布局相关：https://segmentfault.com/a/1190000017845249
         layout.addStretch(1)
 
+        # 右键菜单 https://www.pythonf.cn/read/152969
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.custom_right_menu)
+
     def sizeHint(self) -> QSize:
         return QSize(200, 22)
+
+    def custom_right_menu(self, pos):
+        menu = QtWidgets.QMenu()
+        op1 = menu.addAction('打开文件')
+        op2 = menu.addAction('定位文件')
+        action = menu.exec_(self.mapToGlobal(pos))
+
+        if action == op1:  # 直接使用默认程序打开文件
+            os.startfile(self.cur_data.url)
+        elif action == op2:  # 打开资源管理器并定位到相应文件
+            os.system('explorer.exe /select,' + str(self.cur_data.url))
 
 
 class RefItem(QWidget):
@@ -130,6 +148,39 @@ class MyMainWin(QMainWindow):
                     pass
             if len(s_com_list) < 1:
                 QMessageBox.warning(self, '注意', '并没有勾选资源', QMessageBox.Ok)
+
+            reserved_com = crm.get_com_by_uid(self.cur_hash_vo.reserved_uid)
+
+            new_refs: List[crm.VoRef] = []
+            for i in range(len(s_com_list) - 1, -1, -1):
+                com = s_com_list[i]
+                if com.uid == self.cur_hash_vo.reserved_uid:  # 跳过保留的资源
+                    continue
+                for j in range(len(com.refs) - 1, -1, -1):
+                    ref = com.refs[j]
+                    print(ref.type)
+                    if ref.type == crm.RefType.IMAGE:
+                        # image替换
+                        pass
+                    elif ref.type == crm.RefType.FNT:
+                        # 字体替换
+                        pass
+                    else:
+                        # url替换
+                        # xml_str = ref.file.read_text(encoding='utf-8')
+                        # new_str = xml_str.replace(ref.uid, reserved_com.uid)
+                        # ref.file.write_text(new_str, encoding='utf-8')
+                        # ref.uid = reserved_com.uid  # 设置新的uid
+                        # del com.refs[j]  # 从原来的引用列表中删除
+                        # new_refs.append(ref)  # 添加到新引用列表
+                        pass
+                pass
+            if len(new_refs) > 1:
+                reserved_com.refs.extend(new_refs)
+
+                self.show_com_list(self.cur_hash_vo)
+                self.show_ref_list([])
+                QMessageBox.information(self, '提示', '合并成功', QMessageBox.Yes)
             break
         pass
 
