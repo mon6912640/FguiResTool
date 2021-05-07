@@ -3,12 +3,20 @@ import sys
 from typing import List
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QSize, QModelIndex
-from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem
+from PyQt5.QtCore import Qt, QSize, QModelIndex, pyqtSignal, QObject
+from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem, QGuiApplication
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel, QCheckBox, QMessageBox
 
 import CheckResMd5 as crm
 import mainGUI
+
+
+# 全局自定义事件 参考：https://zhuanlan.zhihu.com/p/89759440
+class GSignal(QObject):
+    refresh = pyqtSignal()
+
+
+global_signal = GSignal()
 
 
 class SourceItem(QWidget):
@@ -39,7 +47,7 @@ class ComItem(QWidget):
         if data.exclude:  # 设置为图集排除的资源
             des_str = '<font color="#ff0000">{0}</font> {1}'.format('(×)', des_str)
         if not data.exported:  # 没有设置为导出的资源
-            des_str = '<font color="#ff0000">{0}</font> {1}'.format('(local)', des_str)
+            des_str = '<font color="#ff0000">{0}</font> {1}'.format('(未导出)', des_str)
         des_str = '({0}) {1}'.format(len(data.refs), des_str)
         self.cb = QCheckBox('', self)
         self.cb.resize(16, 16)
@@ -60,12 +68,27 @@ class ComItem(QWidget):
         menu = QtWidgets.QMenu()
         op1 = menu.addAction('打开文件')
         op2 = menu.addAction('定位文件')
+        op3 = menu.addAction('打开package.xml')
+        op4 = menu.addAction('复制文件名')
+        op99 = None
+        if self.cur_data and not self.cur_data.exported:
+            op99 = menu.addAction('**设置为导出')
         action = menu.exec_(self.mapToGlobal(pos))
 
         if action == op1:  # 直接使用默认程序打开文件
             os.startfile(self.cur_data.url)
         elif action == op2:  # 打开资源管理器并定位到相应文件
             os.system('explorer.exe /select,' + str(self.cur_data.url))
+        elif action == op3:
+            os.startfile(self.cur_data.file_pkg)
+        elif action == op4:
+            cb = QGuiApplication.clipboard()
+            cb.setText(self.cur_data.name)
+        elif op99 and action == op99:
+            self.cur_data.node.set('exported', 'true')
+            self.cur_data.tree.write(self.cur_data.file_pkg, encoding='utf-8')
+            self.cur_data.exported = True
+            global_signal.refresh.emit()
 
 
 class RefItem(QWidget):
@@ -116,6 +139,11 @@ class MyMainWin(QMainWindow):
         self.view.btnMerge.clicked.connect(self.on_merge)
 
         self.img = QPixmap()
+
+        global_signal.refresh.connect(self.on_refresh)
+
+    def on_refresh(self, ):
+        self.show_com_list(self.cur_hash_vo)
 
     def on_save(self):
         while True:

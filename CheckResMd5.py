@@ -1,4 +1,5 @@
 import hashlib
+import xml.etree.ElementTree
 import xml.etree.ElementTree as et
 from pathlib import Path
 from typing import List
@@ -47,7 +48,10 @@ class ComVo:
     com_id = ''
     name = ''
     pkg = ''
+    file_pkg: Path = None
     md5 = ''
+    node: xml.etree.ElementTree.Element = None
+    tree: xml.etree.ElementTree.ElementTree = None
     # 排除
     exclude = False
     # 导出
@@ -109,6 +113,9 @@ def analyse_xml(p_root_url):
                 url = str(path_img.absolute())
                 md5_str = hashs(url)
                 com_vo = ComVo()
+                com_vo.tree = xml_vo
+                com_vo.node = com
+                com_vo.file_pkg = v
                 com_vo.uid = pkg_id + com_id
                 com_vo.pkg_id = pkg_id
                 com_vo.com_id = com_id
