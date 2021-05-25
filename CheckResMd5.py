@@ -1,10 +1,10 @@
 import hashlib
-import xml.etree.ElementTree
-import xml.etree.ElementTree as et
+import re
+from lxml import etree as et
+# import xml.etree.ElementTree as et
+from enum import Enum
 from pathlib import Path
 from typing import List
-import re
-from enum import Enum
 
 
 def hashs(p_fname, p_type="md5", block_size=64 * 1024):
@@ -36,7 +36,8 @@ class RefType(Enum):
 class VoRef:
     # 类型
     type = 0
-    node = None
+    tree: et.ElementTree = None
+    node: et.Element = None
     file: Path = None
     uid = ''
     pkg = ''
@@ -50,8 +51,10 @@ class ComVo:
     pkg = ''
     file_pkg: Path = None
     md5 = ''
-    node: xml.etree.ElementTree.Element = None
-    tree: xml.etree.ElementTree.ElementTree = None
+    node: et.Element = None
+    tree: et.ElementTree = None
+    root: et.Element = None
+    fileName = ''
     # 排除
     exclude = False
     # 导出
@@ -98,6 +101,9 @@ def analyse_xml(p_root_url):
     for v in list_file:
         pkg = v.parent.name  # 包名
         # print('-------', pkg)
+        # 原生的ElementTree不能方便的访问父节点，所以换用lxml
+        # https://www.jingfengshuo.com/archives/1414.html
+        # xml api文档 https://lxml.de/api/
         xml_vo = et.parse(str(v))
         root = xml_vo.getroot()
         if root.tag != 'packageDescription':
@@ -114,12 +120,14 @@ def analyse_xml(p_root_url):
                 md5_str = hashs(url)
                 com_vo = ComVo()
                 com_vo.tree = xml_vo
+                com_vo.root = root
                 com_vo.node = com
                 com_vo.file_pkg = v
                 com_vo.uid = pkg_id + com_id
                 com_vo.pkg_id = pkg_id
                 com_vo.com_id = com_id
                 com_vo.name = com.get('name')
+                com_vo.fileName = path_img.relative_to(v.parent).as_posix()
                 if com.get('exported') == 'true':
                     com_vo.exported = True
                 com_vo.pkg = pkg
@@ -194,6 +202,7 @@ def analyse_xml(p_root_url):
                         ref_vo.type = RefType.IMAGE
                         ref_vo.file = v
                         ref_vo.pkg = pkg_name
+                        ref_vo.tree = xml_vo
                         ref_vo.node = node
                         com_map[uid].refs.append(ref_vo)
                         # com_map[uid].ref_pkgs.add(pkg_name)

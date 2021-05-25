@@ -41,7 +41,7 @@
      </rect>
     </property>
     <property name="selectionMode">
-     <enum>QAbstractItemView::NoSelection</enum>
+     <enum>QAbstractItemView::SingleSelection</enum>
     </property>
    </widget>
    <widget class="QListView" name="listAll">

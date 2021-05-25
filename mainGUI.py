@@ -24,7 +24,7 @@ class Ui_MainWindow(object):
         self.btnSearch.setObjectName("btnSearch")
         self.listShow = QtWidgets.QListView(self.centralwidget)
         self.listShow.setGeometry(QtCore.QRect(280, 0, 271, 391))
-        self.listShow.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self.listShow.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.listShow.setObjectName("listShow")
         self.listAll = QtWidgets.QListView(self.centralwidget)
         self.listAll.setGeometry(QtCore.QRect(0, 0, 269, 331))

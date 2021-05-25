@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 from typing import List
 
 from PyQt5 import QtWidgets
@@ -14,6 +15,10 @@ import mainGUI
 # 全局自定义事件 参考：https://zhuanlan.zhihu.com/p/89759440
 class GSignal(QObject):
     refresh = pyqtSignal()
+    delete_com = pyqtSignal(str, str)
+
+    def __init__(self):
+        super(GSignal, self).__init__()
 
 
 global_signal = GSignal()
@@ -22,12 +27,19 @@ global_signal = GSignal()
 class SourceItem(QWidget):
     def __init__(self, data: crm.VoHash, *args, **kwargs):
         super(SourceItem, self).__init__(*args, **kwargs)
+        self.cur_data = data
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        self.tfContent = QLabel()
+        layout.addWidget(self.tfContent)
+        self.setData(data)
+
+    def setData(self, data: crm.VoHash):
+        self.cur_data = data
         name_str = data.get_name()
         count_str = '({0}) '.format(len(data.com_list))
-        self.tfContent = QLabel(count_str + name_str, self)
-        layout.addWidget(self.tfContent)
+        self.tfContent.setText(count_str + name_str)
+        pass
 
     def sizeHint(self) -> QSize:
         return QSize(200, 22)
@@ -70,23 +82,41 @@ class ComItem(QWidget):
         op2 = menu.addAction('定位文件')
         op3 = menu.addAction('打开package.xml')
         op4 = menu.addAction('复制文件名')
+        op5 = menu.addAction('复制url')
+        menu.addSeparator()
+        op6 = menu.addAction('删除资源')
         op99 = None
         if self.cur_data and not self.cur_data.exported:
+            menu.addSeparator()
             op99 = menu.addAction('**设置为导出')
         action = menu.exec_(self.mapToGlobal(pos))
 
         if action == op1:  # 直接使用默认程序打开文件
             os.startfile(self.cur_data.url)
+
         elif action == op2:  # 打开资源管理器并定位到相应文件
             os.system('explorer.exe /select,' + str(self.cur_data.url))
+
         elif action == op3:
             os.startfile(self.cur_data.file_pkg)
+
         elif action == op4:
             cb = QGuiApplication.clipboard()
             cb.setText(self.cur_data.name)
+
+        elif action == op5:
+            cb = QGuiApplication.clipboard()
+            cb.setText('ui://{0}'.format(self.cur_data.uid))
+
+        elif action == op6:
+            if len(self.cur_data.refs) > 0:
+                QMessageBox.warning(self, '错误', '该资源存在引用，不能删除', QMessageBox.Ok)
+            else:
+                global_signal.delete_com.emit(self.cur_data.md5, self.cur_data.uid)
+
         elif op99 and action == op99:
             self.cur_data.node.set('exported', 'true')
-            self.cur_data.tree.write(self.cur_data.file_pkg, encoding='utf-8')
+            self.cur_data.tree.write(str(self.cur_data.file_pkg), encoding='utf-8', xml_declaration=True)
             self.cur_data.exported = True
             global_signal.refresh.emit()
 
@@ -97,7 +127,7 @@ class RefItem(QWidget):
         self.cur_data = data
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        des_str = data.file.name + '@' + data.pkg
+        des_str = '(t={0}) '.format(data.type.value) + data.file.name + '@' + data.pkg
         self.tfContent = QLabel(des_str, self)
         layout.addWidget(self.tfContent)
 
@@ -141,9 +171,40 @@ class MyMainWin(QMainWindow):
         self.img = QPixmap()
 
         global_signal.refresh.connect(self.on_refresh)
+        global_signal.delete_com.connect(self.on_del_com_item)
 
-    def on_refresh(self, ):
+    def on_refresh(self):
         self.show_com_list(self.cur_hash_vo)
+
+    def on_del_com_item(self, p_md5, p_uid):
+        model = self.view.listAll.model()
+        count = model.rowCount()
+        for i in range(count):
+            mi = model.index(i, 0)
+            item: SourceItem = self.view.listAll.indexWidget(mi)
+            if item.cur_data.key == p_md5:
+                voh: crm.VoHash = crm.md5_map[p_md5]
+                for j in range(len(voh.com_list) - 1, -1, -1):
+                    voc = voh.com_list[j]
+                    if voc.uid == p_uid:
+                        del voh.com_list[j]
+                        path_com = Path(voc.url)
+                        if path_com.exists():
+                            path_com.unlink()  # 删除本地文件
+                        voc.node.getparent().remove(voc.node)  # 删除package.xml里面的引用
+                        voc.tree.write(str(voc.file_pkg), encoding='utf-8', xml_declaration=True)
+                        # voc.node.getroottree().write(voc.file_pkg, encoding='utf-8', xml_declaration=True)
+                        break
+                if len(voh.com_list) < 1:
+                    # 删除项
+                    model.removeRow(i)
+                    del self.hash_list[i]
+                else:
+                    # 更新项
+                    item.setData(voh)
+                    self.show_com_list(voh)
+                break
+        pass
 
     def on_save(self):
         while True:
@@ -186,24 +247,35 @@ class MyMainWin(QMainWindow):
                     continue
                 for j in range(len(com.refs) - 1, -1, -1):
                     ref = com.refs[j]
-                    print(ref.type)
+                    # print(ref.type)
                     if ref.type == crm.RefType.IMAGE:
                         # image替换
-                        pass
+                        ref.node.set('src', reserved_com.com_id)
+                        ref.node.set('fileName', reserved_com.fileName)
+                        # print(ref.pkg, reserved_com.pkg)
+                        if ref.pkg == reserved_com.pkg:
+                            if 'pkg' in ref.node:  # 删除pkg属性
+                                del ref.node.attrib['pkg']
+                        else:  # 替换pkg属性
+                            ref.node.set('pkg', reserved_com.pkg_id)
+                        ref.tree.write(str(ref.file), encoding='utf-8', xml_declaration=True)
+                        ref.uid = reserved_com.uid  # 设置新的uid
+                        del com.refs[j]  # 从原来的引用列表中删除
+                        new_refs.append(ref)  # 添加到新引用列表
                     elif ref.type == crm.RefType.FNT:
                         # 字体替换
                         pass
                     else:
                         # url替换
-                        # xml_str = ref.file.read_text(encoding='utf-8')
-                        # new_str = xml_str.replace(ref.uid, reserved_com.uid)
-                        # ref.file.write_text(new_str, encoding='utf-8')
-                        # ref.uid = reserved_com.uid  # 设置新的uid
-                        # del com.refs[j]  # 从原来的引用列表中删除
-                        # new_refs.append(ref)  # 添加到新引用列表
+                        xml_str = ref.file.read_text(encoding='utf-8')
+                        new_str = xml_str.replace(ref.uid, reserved_com.uid)
+                        ref.file.write_text(new_str, encoding='utf-8')
+                        ref.uid = reserved_com.uid  # 设置新的uid
+                        del com.refs[j]  # 从原来的引用列表中删除
+                        new_refs.append(ref)  # 添加到新引用列表
                         pass
                 pass
-            if len(new_refs) > 1:
+            if len(new_refs) > 0:
                 reserved_com.refs.extend(new_refs)
 
                 self.show_com_list(self.cur_hash_vo)
@@ -283,13 +355,8 @@ class MyMainWin(QMainWindow):
         app.quit()
 
     def on_search_click(self):
-        self._model_all = QStandardItemModel(self)
-        self.view.listAll.setModel(self._model_all)
-        # 选中处理
-        self.view.listAll.selectionModel().currentChanged.connect(self.on_list_all_selected_change)
-
-        # root_url = 'I:/sanguo2/client/sanguo2UI'
-        root_url = 'I:/newQz/client/yxqzUI'
+        root_url = 'I:/sanguo2/client/sanguo2UI'
+        # root_url = 'I:/newQz/client/yxqzUI'
         crm.analyse_xml(root_url)
         self.md5_map = crm.md5_map
         self.hash_list = []
@@ -302,6 +369,24 @@ class MyMainWin(QMainWindow):
 
         self.hash_list.sort(key=lambda e: len(e.com_list), reverse=True)
 
+        # for v in self.hash_list:
+        #     item = QStandardItem()
+        #     self._model_all.appendRow(item)
+        #     index = self._model_all.indexFromItem(item)
+        #     sitem = SourceItem(v)
+        #     item.setSizeHint(sitem.sizeHint())
+        #     self.view.listAll.setIndexWidget(index, sitem)
+        self.show_source_list()
+
+        self.statusBar().showMessage('共有{0}个重复资源'.format(len(self.hash_list)))
+        pass
+
+    def show_source_list(self):
+        self._model_all = QStandardItemModel(self)
+        self.view.listAll.setModel(self._model_all)
+        # 选中处理
+        self.view.listAll.selectionModel().currentChanged.connect(self.on_list_all_selected_change)
+
         for v in self.hash_list:
             item = QStandardItem()
             self._model_all.appendRow(item)
@@ -309,9 +394,6 @@ class MyMainWin(QMainWindow):
             sitem = SourceItem(v)
             item.setSizeHint(sitem.sizeHint())
             self.view.listAll.setIndexWidget(index, sitem)
-
-        self.statusBar().showMessage('共有{0}个重复资源'.format(len(self.hash_list)))
-        pass
 
     def show_com_list(self, p_hash):
         vo = p_hash
@@ -351,6 +433,6 @@ if __name__ == '__main__':
 
     main_win = MyMainWin()
     main_win.show()
-    main_win.setWindowTitle('FGUI资源去重工具')
+    main_win.setWindowTitle('FGUI资源查重工具')
 
     sys.exit(app.exec_())
