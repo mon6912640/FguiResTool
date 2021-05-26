@@ -28,7 +28,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>搜索</string>
+     <string>刷新</string>
     </property>
    </widget>
    <widget class="QListView" name="listShow">
@@ -233,8 +233,46 @@
      <height>23</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>文件</string>
+    </property>
+    <widget class="QMenu" name="menuRecent">
+     <property name="title">
+      <string>最近打开过</string>
+     </property>
+    </widget>
+    <addaction name="actOpen"/>
+    <addaction name="menuRecent"/>
+   </widget>
+   <addaction name="menu"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actOpen">
+   <property name="text">
+    <string>打开目录</string>
+   </property>
+  </action>
+  <action name="actRecent">
+   <property name="text">
+    <string>最近打开过</string>
+   </property>
+  </action>
+  <action name="actiont1">
+   <property name="text">
+    <string>t1</string>
+   </property>
+  </action>
+  <action name="actiont2">
+   <property name="text">
+    <string>t2</string>
+   </property>
+  </action>
+  <action name="actiontest1">
+   <property name="text">
+    <string>test1</string>
+   </property>
+  </action>
  </widget>
  <resources>
   <include location="../res/res.qrc"/>

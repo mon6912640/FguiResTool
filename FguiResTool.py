@@ -1,12 +1,14 @@
+import json
 import os
 import sys
 from pathlib import Path
 from typing import List
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QSize, QModelIndex, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, QSize, QModelIndex, pyqtSignal, QObject, QDir
 from PyQt5.QtGui import QPixmap, QStandardItemModel, QStandardItem, QGuiApplication
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel, QCheckBox, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QLabel, QCheckBox, QMessageBox, \
+    QFileDialog, QAction
 
 import CheckResMd5 as crm
 import mainGUI
@@ -160,6 +162,25 @@ class MyMainWin(QMainWindow):
         self.view = mainGUI.Ui_MainWindow()
         self.view.setupUi(self)
 
+        # self.root_url = 'I:/sanguo2/client/sanguo2UI'
+        # self.root_url = 'I:/newQz/client/yxqzUI'
+        self.root_url = ''
+
+        self.temp_path = Path(QDir.currentPath()) / 'temp' / 'temp.txt'
+        # self.temp_path = Path(QDir.tempPath())
+
+        if not self.temp_path.exists():
+            self.data = {
+                'recents': []
+            }
+            json_str = json.dumps(self.data, indent=4)
+            self.temp_path.parent.mkdir(parents=True, exist_ok=True)
+            self.temp_path.write_text(json_str, encoding='utf-8')
+        else:
+            json_str = self.temp_path.read_text(encoding='utf-8')
+            self.data = json.loads(json_str)
+            # print(self.data)
+
         self.view.btnClose.clicked.connect(self.on_close_click)
         self.view.btnSearch.clicked.connect(self.on_search_click)
         self.view.btnSelectAll.clicked.connect(self.on_select_all)
@@ -168,10 +189,53 @@ class MyMainWin(QMainWindow):
         self.view.btnSave.clicked.connect(self.on_save)
         self.view.btnMerge.clicked.connect(self.on_merge)
 
+        self.view.actOpen.triggered.connect(self.on_open)
+        self.view.menuRecent.aboutToShow.connect(self.on_show_recents)
+        self.view.menuRecent.triggered.connect(self.on_recents_click)
+
         self.img = QPixmap()
 
         global_signal.refresh.connect(self.on_refresh)
         global_signal.delete_com.connect(self.on_del_com_item)
+
+    def recode_opened(self, p_url):
+        # 记录打开过的目录
+        recents = self.data['recents']
+        if p_url in recents:
+            recents.remove(p_url)
+        recents.append(p_url)
+        json_str = json.dumps(self.data, indent=4)
+        self.temp_path.write_text(json_str, encoding='utf-8')
+
+    def on_show_recents(self):
+        # 动态显示最近打开的路径
+        list_data = self.data['recents'].copy()
+        list_data.reverse()
+        self.view.menuRecent.clear()
+        if len(list_data) > 0:
+            for url in list_data:
+                act = QtWidgets.QAction(self)
+                self.view.menuRecent.addAction(act)
+                act.setText(url)
+
+    def on_recents_click(self, p_act: QAction):
+        # 最近打开的菜单点击处理
+        url = p_act.text()
+        self.root_url = url
+        self.on_search_click()
+
+    def on_open(self):
+        dir_choose = QFileDialog.getExistingDirectory(self, "选择fgui项目的根目录")
+        if not dir_choose:
+            return
+        path_choose = Path(dir_choose)
+        list_file = sorted(path_choose.glob('*.fairy'))
+        if len(list_file) > 0:
+            self.root_url = dir_choose
+            self.recode_opened(dir_choose)
+        else:
+            QMessageBox.warning(self, '错误', '该目录不是fgui项目根目录（目录需要包含“.fairy”文件）', QMessageBox.Ok)
+        pass
 
     def on_refresh(self):
         self.show_com_list(self.cur_hash_vo)
@@ -254,7 +318,7 @@ class MyMainWin(QMainWindow):
                         ref.node.set('fileName', reserved_com.fileName)
                         # print(ref.pkg, reserved_com.pkg)
                         if ref.pkg == reserved_com.pkg:
-                            if 'pkg' in ref.node:  # 删除pkg属性
+                            if 'pkg' in ref.node.attrib:  # 删除pkg属性
                                 del ref.node.attrib['pkg']
                         else:  # 替换pkg属性
                             ref.node.set('pkg', reserved_com.pkg_id)
@@ -355,9 +419,10 @@ class MyMainWin(QMainWindow):
         app.quit()
 
     def on_search_click(self):
-        root_url = 'I:/sanguo2/client/sanguo2UI'
-        # root_url = 'I:/newQz/client/yxqzUI'
-        crm.analyse_xml(root_url)
+        if not self.root_url:
+            QMessageBox.warning(self, '错误', '请先打开一个fgui项目目录', QMessageBox.Ok)
+            return
+        crm.analyse_xml(self.root_url)
         self.md5_map = crm.md5_map
         self.hash_list = []
         for k in self.md5_map:
@@ -368,14 +433,6 @@ class MyMainWin(QMainWindow):
             self.hash_list.append(vo)
 
         self.hash_list.sort(key=lambda e: len(e.com_list), reverse=True)
-
-        # for v in self.hash_list:
-        #     item = QStandardItem()
-        #     self._model_all.appendRow(item)
-        #     index = self._model_all.indexFromItem(item)
-        #     sitem = SourceItem(v)
-        #     item.setSizeHint(sitem.sizeHint())
-        #     self.view.listAll.setIndexWidget(index, sitem)
         self.show_source_list()
 
         self.statusBar().showMessage('共有{0}个重复资源'.format(len(self.hash_list)))

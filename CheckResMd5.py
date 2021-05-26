@@ -103,7 +103,7 @@ def analyse_xml(p_root_url):
         # print('-------', pkg)
         # 原生的ElementTree不能方便的访问父节点，所以换用lxml
         # https://www.jingfengshuo.com/archives/1414.html
-        # xml api文档 https://lxml.de/api/
+        # lxml api文档 https://lxml.de/api/
         xml_vo = et.parse(str(v))
         root = xml_vo.getroot()
         if root.tag != 'packageDescription':
