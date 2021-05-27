@@ -233,6 +233,7 @@ class MyMainWin(QMainWindow):
         if len(list_file) > 0:
             self.root_url = dir_choose
             self.recode_opened(dir_choose)
+            self.on_search_click()
         else:
             QMessageBox.warning(self, '错误', '该目录不是fgui项目根目录（目录需要包含“.fairy”文件）', QMessageBox.Ok)
         pass
@@ -327,7 +328,7 @@ class MyMainWin(QMainWindow):
                         del com.refs[j]  # 从原来的引用列表中删除
                         new_refs.append(ref)  # 添加到新引用列表
                     elif ref.type == crm.RefType.FNT:
-                        # 字体替换
+                        # 字体替换(不需要做处理，因为fnt只能使用本包资源，不能跨包引用资源)
                         pass
                     else:
                         # url替换
