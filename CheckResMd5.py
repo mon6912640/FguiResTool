@@ -170,6 +170,8 @@ def analyse_xml(p_root_url):
         if v.suffix == '.xml':
             xml_vo = et.parse(str(v))
             root = xml_vo.getroot().find('displayList')
+            if root is None:
+                continue
 
             # 直接搜索ui://xxxxxx
             xml_str = v.read_text(encoding='utf-8')
