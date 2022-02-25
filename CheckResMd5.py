@@ -55,6 +55,8 @@ class ComVo:
     tree: et.ElementTree = None
     root: et.Element = None
     fileName = ''
+    # 相对于assets文件夹的地址
+    rela_add = ''
     # 排除
     exclude = False
     # 导出
@@ -128,6 +130,7 @@ def analyse_xml(p_root_url):
                 com_vo.com_id = com_id
                 com_vo.name = com.get('name')
                 com_vo.fileName = path_img.relative_to(v.parent).as_posix()
+                com_vo.rela_add = path_img.relative_to(path_res).as_posix()
                 if com.get('exported') == 'true':
                     com_vo.exported = True
                 com_vo.pkg = pkg

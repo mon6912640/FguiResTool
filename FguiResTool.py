@@ -59,7 +59,7 @@ class ComItem(QWidget):
         if hash_vo.reserved_uid == data.uid:  # 保留资源着色显示
             des_str = '<font color="#0000ff">{0}</font>'.format(des_str)
         if data.exclude:  # 设置为图集排除的资源
-            des_str = '<font color="#ff0000">{0}</font> {1}'.format('(×)', des_str)
+            des_str = '<font color="#ff0000">{0}</font> {1}'.format('(排除)', des_str)
         if not data.exported:  # 没有设置为导出的资源
             des_str = '<font color="#ff0000">{0}</font> {1}'.format('(未导出)', des_str)
         des_str = '({0}) {1}'.format(len(data.refs), des_str)
@@ -80,6 +80,8 @@ class ComItem(QWidget):
 
     def custom_right_menu(self, pos):
         menu = QtWidgets.QMenu()
+        op0 = menu.addAction(self.cur_data.rela_add)
+        menu.addSeparator()
         op1 = menu.addAction('打开文件')
         op2 = menu.addAction('定位文件')
         op3 = menu.addAction('打开package.xml')
